@@ -9,7 +9,7 @@ Automatically summarize newly retrieved RSS articles using LLM APIs (OpenAI-comp
 - ⚡ **Efficient Batch Processing**: Summarizes multiple articles in a single API call to reduce costs
 - 🔄 **Auto-retry**: Failed API calls automatically retry on the next feed update
 - 📊 **Per-feed Control**: Enable/disable summarization and configure batch size for each feed individually
-- 🎯 **Smart Filtering**: Skips image-only and too-short articles, adds explanatory notes
+- 🎯 **Smart Filtering**: Filters out Feed Digest generated articles to prevent duplicate processing
 - 🎨 **Clean Output**: Creates formatted summary articles with links to originals
 
 ## Requirements
@@ -111,8 +111,7 @@ Key: sk-or-v1-...
 2. **Feed Check**: For each feed with summarization enabled, it fetches unread articles (up to 200)
 3. **Article Filtering**:
    - Filters out previously created summary articles
-   - Identifies image-only or too-short articles (< 100 characters)
-   - Adds explanatory notes to skipped articles (they remain unread for you to review)
+   - Short or image-heavy articles are still eligible for summarization
 4. **Batch Processing**: Articles are processed in configurable batches (default: 10 per batch)
    - Only processes batches when enough articles are available
    - Each batch is sent to the LLM API in one request for efficiency
@@ -212,8 +211,6 @@ API costs vary by provider and model. Using `gpt-5-nano` (recommended):
 - **Sequential Batches**: Each feed's batches are processed sequentially to avoid timeouts
 - **No Retry Tracking**: Failed batches retry every update (no exponential backoff)
 - **Context Limits**: Very long articles are truncated based on max content length setting
-- **Image-only Articles**: Articles with minimal text are skipped and left unread with an explanatory note
-
 ## Development
 
 ### Testing

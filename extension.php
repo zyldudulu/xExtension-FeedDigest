@@ -164,7 +164,7 @@ final class FeedDigestExtension extends Minz_Extension {
 				$nonSummaryEntries[] = $entry;
 			}
 
-			// Filter articles: separate worth summarizing vs. too short/image-only
+			// Filter articles: separate worth summarizing vs. skipped by plugin rules
 			$worthSummarizing = [];
 			$skippedArticles = [];
 
@@ -199,7 +199,7 @@ final class FeedDigestExtension extends Minz_Extension {
 			}
 
 			$totalWorthy = count($worthSummarizing);
-			$totalImageOnly = count($skippedArticles);
+			$totalSkipped = count($skippedArticles);
 
 			// Check if we have enough articles to process at least one batch
 			if ($totalWorthy < $batchSize) {
@@ -239,9 +239,9 @@ final class FeedDigestExtension extends Minz_Extension {
 			}
 
 			$remainingWorthy = count($worthSummarizing);
-			$totalRemaining = $remainingWorthy + $totalImageOnly;
+			$totalRemaining = $remainingWorthy + $totalSkipped;
 
-			Minz_Log::notice("Feed Digest: {$feed->name()} complete - processed {$totalProcessed} articles in {$batchNumber} batches, {$totalRemaining} left unread ({$remainingWorthy} waiting for batch, {$totalImageOnly} image-only)");
+			Minz_Log::notice("Feed Digest: {$feed->name()} complete - processed {$totalProcessed} articles in {$batchNumber} batches, {$totalRemaining} left unread ({$remainingWorthy} waiting for batch, {$totalSkipped} skipped)");
 
 		} catch (Exception $e) {
 			Minz_Log::error("Feed Digest error for feed {$feed->name()}: " . $e->getMessage());
@@ -281,22 +281,7 @@ final class FeedDigestExtension extends Minz_Extension {
 	 * Get the reason why an article should be skipped, or null if worth summarizing
 	 */
 	private function getSkipReason(FreshRSS_Entry $entry): ?string {
-		$content = $entry->content();
-
-		// Strip HTML tags to get plain text
-		$plainText = strip_tags($content);
-		$plainText = html_entity_decode($plainText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-		$plainText = trim(preg_replace('/\s+/', ' ', $plainText));
-
-		$textLength = strlen($plainText);
-		$hasImages = preg_match('/<img[^>]*>/i', $content);
-
-		// Simple rule: Skip only if it has images AND insufficient text
-		if ($hasImages && $textLength < 200) {
-			return 'Article contains images but has insufficient text (less than 200 characters)';
-		}
-
-		return null; // Article is worth summarizing
+		return null;
 	}
 
 	/**
