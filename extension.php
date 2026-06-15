@@ -21,19 +21,35 @@ final class FeedDigestExtension extends Minz_Extension {
 		$this->registerHook('freshrss_init', [$this, 'handleFreshRSSInit']);
 		$this->registerTranslates();
 		$this->registerViews();
+		$this->registerController('feedDigest');
+
+		if (Minz_Request::controllerName() === 'subscription') {
+			Minz_View::appendScript($this->getFileUrl('feed-digest.js'));
+		}
+	}
+
+	private function applyFeedDigestSettingsFromRequest(FreshRSS_Feed $feed): bool {
+		if (!Minz_Request::hasParam('feed_digest_enabled') && !Minz_Request::hasParam('feed_digest_batch_size')) {
+			return false;
+		}
+
+		if (Minz_Request::hasParam('feed_digest_enabled')) {
+			$feed->_attribute('feed_digest_enabled', Minz_Request::paramTernary('feed_digest_enabled'));
+		}
+
+		if (Minz_Request::hasParam('feed_digest_batch_size')) {
+			$batchSize = Minz_Request::paramInt('feed_digest_batch_size');
+			$feed->_attribute('feed_digest_batch_size', max(1, min(50, $batchSize > 0 ? $batchSize : 10)));
+		}
+
+		return true;
 	}
 
 	/**
 	 * Hook to save per-feed setting when NEW feed is created
 	 */
 	public function handleFeedBeforeInsert(FreshRSS_Feed $feed): FreshRSS_Feed {
-		// Check if the feed form was submitted with our settings
-		$enabled = Minz_Request::paramTernary('feed_digest_enabled');
-		$feed->_attribute('feed_digest_enabled', $enabled);
-
-		$batchSize = Minz_Request::paramInt('feed_digest_batch_size');
-		$feed->_attribute('feed_digest_batch_size', $batchSize > 0 ? $batchSize : 10);
-
+		$this->applyFeedDigestSettingsFromRequest($feed);
 		return $feed;
 	}
 
@@ -54,17 +70,12 @@ final class FeedDigestExtension extends Minz_Extension {
 				$feed = $feedDAO->searchById($feedId);
 
 				if ($feed !== null) {
-					// Read our form fields and save them
-					$enabled = Minz_Request::paramTernary('feed_digest_enabled');
-					$feed->_attribute('feed_digest_enabled', $enabled);
+					if ($this->applyFeedDigestSettingsFromRequest($feed)) {
+						// Update the feed with the new attributes before FreshRSS persists the rest of the form.
+						$feedDAO->updateFeed($feedId, ['attributes' => $feed->attributes()]);
 
-					$batchSize = Minz_Request::paramInt('feed_digest_batch_size');
-					$feed->_attribute('feed_digest_batch_size', $batchSize > 0 ? $batchSize : 10);
-
-					// Update the feed with the new attributes
-					$feedDAO->updateFeed($feedId, ['attributes' => $feed->attributes()]);
-
-					Minz_Log::notice("Feed Digest: Settings saved for feed {$feed->name()}");
+						Minz_Log::notice("Feed Digest: Settings saved for feed {$feed->name()}");
+					}
 				} else {
 					Minz_Log::warning("Feed Digest: Feed not found with ID {$feedId}");
 				}
@@ -690,8 +701,8 @@ PROMPT;
 			$content = $summaryBox . $originalEntry->content();
 		}
 
-		// Use original article's date but generate unique ID
-		$timestamp = $originalEntry->date();
+		// Use original article's raw Unix timestamp but generate unique ID.
+		$timestamp = $originalEntry->date(true);
 		$guid = 'llm-translated-' . $originalEntry->id() . '-' . time();
 
 		// Prepare entry data
