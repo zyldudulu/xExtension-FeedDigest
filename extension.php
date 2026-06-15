@@ -9,6 +9,8 @@ declare(strict_types=1);
  */
 final class FeedDigestExtension extends Minz_Extension {
 
+	private bool $deferUserMaintenanceUntilAfterActualize = false;
+
 	/**
 	 * Initialize the extension and register hooks
 	 */
@@ -16,6 +18,7 @@ final class FeedDigestExtension extends Minz_Extension {
 	public function init(): void {
 		parent::init();
 
+		$this->registerHook('action_execute', [$this, 'handleActionExecute']);
 		$this->registerHook('freshrss_user_maintenance', [$this, 'handleUserMaintenance']);
 		$this->registerHook('feed_before_insert', [$this, 'handleFeedBeforeInsert']);
 		$this->registerHook('freshrss_init', [$this, 'handleFreshRSSInit']);
@@ -54,6 +57,31 @@ final class FeedDigestExtension extends Minz_Extension {
 	}
 
 	/**
+	 * Run FeedDigest after FreshRSS has completed feed actualization.
+	 *
+	 * @return Minz_ActionController|false
+	 */
+	public function handleActionExecute(Minz_ActionController $controller) {
+		if (!$controller instanceof FreshRSS_feed_Controller ||
+		    Minz_Request::actionName() !== 'actualize' ||
+		    (($_POST['noCommit'] ?? 0) == 1)) {
+			return $controller;
+		}
+
+		$this->deferUserMaintenanceUntilAfterActualize = true;
+		try {
+			$controller->actualizeAction();
+		} finally {
+			$this->deferUserMaintenanceUntilAfterActualize = false;
+		}
+
+		$this->handleUserMaintenance();
+
+		// FreshRSS would otherwise execute the action a second time.
+		return false;
+	}
+
+	/**
 	 * Hook to handle feed update form submissions
 	 */
 	public function handleFreshRSSInit(): void {
@@ -84,9 +112,13 @@ final class FeedDigestExtension extends Minz_Extension {
 	}
 
 	/**
-	 * Main hook handler - called after feed updates during cron/batch refresh
+	 * Main hook handler - processes unread articles for enabled feeds
 	 */
 	public function handleUserMaintenance(): void {
+		if ($this->deferUserMaintenanceUntilAfterActualize) {
+			return;
+		}
+
 		try {
 			Minz_Log::warning('Feed Digest: Maintenance hook triggered');
 

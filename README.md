@@ -1,6 +1,6 @@
 # Feed Digest Extension for FreshRSS
 
-Automatically summarize newly retrieved RSS articles using LLM APIs (OpenAI-compatible). This extension processes articles during feed updates, creates combined summary articles in your destination language, and marks the originals as read.
+Automatically summarize newly retrieved RSS articles using LLM APIs (OpenAI-compatible). This extension processes articles after feed updates complete, creates combined summary articles in your destination language, and marks the originals as read.
 
 ## Features
 
@@ -107,7 +107,7 @@ Key: sk-or-v1-...
 
 ## How It Works
 
-1. **Scheduled Updates**: During your regular FreshRSS cron/scheduled feed updates, the extension activates
+1. **Scheduled Updates**: During regular FreshRSS cron or manual feed updates, the extension runs after FreshRSS has pulled and committed new articles
 2. **Feed Check**: For each feed with summarization enabled, it fetches unread articles (up to 200)
 3. **Article Filtering**:
    - Filters out previously created summary articles
@@ -206,7 +206,7 @@ API costs vary by provider and model. Using `gpt-5-nano` (recommended):
 
 ## Limitations
 
-- **Cron-based**: Summarization happens during scheduled updates, not immediately on manual refresh
+- **Refresh-based**: Summarization runs after FreshRSS feed actualization, so newly pulled articles can be processed in the same refresh cycle
 - **Batch Processing**: Articles must accumulate to the configured batch size before processing
 - **Sequential Batches**: Each feed's batches are processed sequentially to avoid timeouts
 - **No Retry Tracking**: Failed batches retry every update (no exponential backoff)
