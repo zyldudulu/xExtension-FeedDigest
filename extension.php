@@ -148,6 +148,7 @@ final class FeedDigestExtension extends Minz_Extension {
 				$enabledCount++;
 
 				$this->processFeed($feed, $apiEndpoint, $secretKey, $model, $destLanguage, $maxContentLength);
+				$feedDAO->updateCachedValues($feed->id());
 			}
 
 			if ($enabledCount === 0) {
